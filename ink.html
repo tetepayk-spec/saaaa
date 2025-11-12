@@ -1,12 +1,12 @@
 <html lang="zh-CN">
 <head>
+  <meta charset="UTF-8">
   <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0" name="viewport">
   <meta content="yes" name="apple-mobile-web-app-capable">
   <meta content="yes" name="apple-touch-fullscreen">
   <meta content="black" name="apple-mobile-web-app-status-bar-style">
   <meta content="320" name="MobileOptimized">
-  <meta http-equiv="refresh" content="2" id="refreshMeta">
-  <title>页面跳转中...</title>
+  <title>页面加载中...</title>
 <style>
 .container {
         width: 100px;
@@ -184,6 +184,15 @@
         }
     }
     
+    .content {
+      height: 100%;
+      width: 100%;
+      position: fixed;
+      left: 0;
+      top: 0;
+      border: none;
+    }
+    
     .message {
       position: absolute;
       top: 65%;
@@ -191,6 +200,7 @@
       transform: translateX(-50%);
       text-align: center;
       font-family: Arial, sans-serif;
+      color: #333;
     }
     
     .manual-link {
@@ -202,49 +212,111 @@
     .manual-link:hover {
       text-decoration: underline;
     }
+    
+    .error-message {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #f8f8f8;
+      text-align: center;
+      padding-top: 40%;
+      box-sizing: border-box;
+    }
 </style>
 
 
 
 <body>
+  <!-- 加载动画 -->
+  <div class="container" id="loadingContainer">
+    <div class="dot dot-1"></div>
+    <div class="dot dot-2"></div>
+    <div class="dot dot-3"></div>
+  </div>
+  
+  <div class="message">
+    <p>页面加载中，请稍候...</p>
+  </div>
+  
+  <!-- 错误提示 -->
+  <div class="error-message" id="errorMessage">
+    <p>页面加载失败</p>
+    <p><a href="#" class="manual-link" id="retryLink">点击重试</a></p>
+  </div>
+  
+  <!-- iframe容器 -->
+  <iframe class="content" id="contentFrame" style="display:none;"></iframe>
 
-<div class="container">
-            <div class="dot dot-1"></div>
-            <div class="dot dot-2"></div>
-            <div class="dot dot-3"></div>
-</div>
-<div class="message">
-  <p>页面跳转中，请稍候...</p>
-  <p>如果没有自动跳转，请<a href="#" class="manual-link" id="manualLink">点击这里</a></p>
-</div>
- <script>
-var urlParams = new URLSearchParams(window.location.search);
-var encodedParam = urlParams.get('c');
-if (encodedParam) {
-  try {
-    var tureurl = decodeURIComponent(atob(encodedParam));
-    if (tureurl.includes("http")) {
-      // 设置手动链接
-      document.getElementById("manualLink").href = tureurl;
-      
-      // 延迟2秒后自动跳转
-      setTimeout(function() {
-        window.location.href = tureurl;
-      }, 2000);
-      
-      console.log("跳转到: " + tureurl);
+  <script>
+    var urlParams = new URLSearchParams(window.location.search);
+    var encodedParam = urlParams.get('c');
+    var loadingContainer = document.getElementById("loadingContainer");
+    var contentFrame = document.getElementById("contentFrame");
+    var errorMessage = document.getElementById("errorMessage");
+    var retryLink = document.getElementById("retryLink");
+    
+    if (encodedParam) {
+      try {
+        var tureurl = decodeURIComponent(atob(encodedParam));
+        if (tureurl.includes("http")) {
+          // 设置重试链接
+          retryLink.href = tureurl;
+          
+          // 延迟一小段时间后显示iframe，改善用户体验
+          setTimeout(function() {
+            try {
+              // 创建一个中间页面来解决编码问题
+              var iframeDoc = contentFrame.contentWindow.document;
+              iframeDoc.open();
+              iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="referrer" content="no-referrer"></head><body style="margin:0;padding:0;"><script>window.location.href="' + tureurl + '";<' + '/script></body></html>');
+              iframeDoc.close();
+              
+              contentFrame.style.display = "block";
+              
+              // 监听iframe加载完成事件
+              contentFrame.onload = function() {
+                // 隐藏加载动画
+                loadingContainer.style.display = "none";
+                document.querySelector('.message').style.display = "none";
+              };
+              
+              // 监听iframe加载错误事件
+              contentFrame.onerror = function() {
+                showError();
+              };
+            } catch(e) {
+              // 如果上面的方法失败，则直接设置src属性
+              try {
+                contentFrame.src = tureurl;
+                contentFrame.style.display = "block";
+              } catch(e2) {
+                showError();
+              }
+            }
+          }, 1000);
+          
+          console.log("加载: " + tureurl);
+        } else {
+          console.log("无效的URL");
+          showError();
+        }
+      } catch(e) {
+        console.log("解码失败: " + e);
+        showError();
+      }
     } else {
-      console.log("无效的URL");
-      document.querySelector('.message').innerHTML = '<p>链接无效</p>';
+      console.log("缺少参数");
+      showError();
     }
-  } catch(e) {
-    console.log("解码失败: " + e);
-    document.querySelector('.message').innerHTML = '<p>链接解析失败</p>';
-  }
-} else {
-  console.log("缺少参数");
-  document.querySelector('.message').innerHTML = '<p>缺少跳转参数</p>';
-}
+    
+    function showError() {
+      loadingContainer.style.display = "none";
+      document.querySelector('.message').style.display = "none";
+      errorMessage.style.display = "block";
+    }
   </script>
 </body>
 </html>
